@@ -1,0 +1,98 @@
+#!/bin/bash
+
+BRIGHT=$(tput bold)
+NORMAL=$(tput sgr0)
+
+COLS=$(tput cols)
+ERASE=""
+for ((i = 1; i <= COLS; i++)); do
+   ERASE="$ERASE "
+done
+ERASE="\r$ERASE\r"
+
+options="-o merge_request.create"
+
+declare -a option_keys=(
+   ""
+   "merge_request.merge_when_pipeline_succeeds"
+   "merge_request.remove_source_branch"
+   "merge_request.draft"
+   "merge_request.target="
+   "merge_request.title="
+   "merge_request.description="
+   "merge_request.assign="
+)
+declare -a option_descriptions=(
+   "Submit"
+   "Merge when pipeline succeeds"
+   "Remove the source branch when it’s merged"
+   "Mark as a draft"
+   "Target branch="
+   "Title="
+   "Description="
+   "Assign users="
+)
+
+bytes_len() {
+   local bytes_length original_lang=$LANG original_lc_all=$LC_ALL
+   LANG=C LC_ALL=C
+   bytes_length=${#1}
+   LANG=$original_lang LC_ALL=$original_lc_all
+   echo "$bytes_length"
+}
+str_len() {
+   echo "${#1}"
+}
+
+arraylength=${#option_descriptions[@]}
+for ((i = 0; i < $arraylength; i++)); do
+   description=${option_descriptions[$i]}
+   echo "[$i]: $description"
+done
+
+while :; do
+   message="Selected: ${BRIGHT}$options${NORMAL} : "
+   len=$(str_len "Selected: $options : ")
+   back_cols=$((len / COLS))
+
+   echo -en "\r$message"
+   read -er number
+   if [[ -n $number && $len -le $COLS ]]; then
+      back_cols=$((back_cols + 1))
+   fi
+
+   if [[ $number =~ ^[[:digit:]]+$ ]]; then
+      if [[ "$number" -eq 0 ]]; then
+         echo
+         break
+      fi
+      if [[ $back_cols -gt 0 ]]; then
+         tput cuu $back_cols
+      fi
+   else
+      if [[ $back_cols -gt 0 ]]; then
+         tput cuu $back_cols
+      fi
+      continue
+   fi
+   ((((number = (10#$number)) < $arraylength) && number >= 0)) || continue
+
+   key=${option_keys[$number]}
+   if [[ $key =~ .*=$ ]]; then
+      description=${option_descriptions[$number]}
+      echo -en "${ERASE}${BRIGHT}$description${NORMAL}"
+      read -er response
+      tput cuu 1
+      if [[ -n "$response" ]]; then
+         if [[ "$string" =~ \  ]]; then
+            options="$options -o $key\"$response\""
+         else
+            options="$options -o $key$response"
+         fi
+      fi
+   else
+      options="$options -o $key"
+   fi
+done
+
+git push $options
