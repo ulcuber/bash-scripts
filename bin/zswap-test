@@ -1,0 +1,46 @@
+#!/bin/bash
+
+DOT="."
+precision=2
+
+format_size() {
+    numfmt --to=iec-i --suffix=B --format="%.${precision}f" $*
+}
+
+# round $1 to $2 decimal places
+round() {
+    printf "%.${2:-${precision}}f" "$(echo $1 | tr '.' ${DOT})"
+}
+
+page_size=4096
+
+mem_total=$(free | grep -i 'mem' | tr -s '[:space:]' | cut -d ' ' -f2)
+mem_total=$(echo "${mem_total} * 1024" | bc) # to bytes
+mem_free=$(free | grep -i 'mem' | tr -s '[:space:]' | cut -d ' ' -f4)
+mem_free=$(echo "${mem_free} * 1024" | bc) # to bytes
+swap=$(free -h | grep -i 'swap' | tr -s '[:space:]' | cut -d ' ' -f3)
+swap_total=$(free -h | grep -i 'swap' | tr -s '[:space:]' | cut -d ' ' -f2)
+stored_pages=$(sudo cat /sys/kernel/debug/zswap/stored_pages)
+pool_total_size=$(sudo cat /sys/kernel/debug/zswap/pool_total_size)
+max_pool_percent=$(sudo cat /sys/module/zswap/parameters/max_pool_percent)
+
+if [[ ${pool_total_size} -eq 0 ]]; then
+    compression=1
+else
+    compression=$(echo "${stored_pages} * ${page_size} / ${pool_total_size}" | bc -l)
+fi
+max_pool_size=$(echo "${mem_total} * ${max_pool_percent} / 100" | bc -l | cut -d '.' -f1)
+pool_percent=$(round $(echo "${pool_total_size} / ${mem_total} * 100" | bc -l))
+increased=$(echo "${mem_total} * (1 + ${max_pool_percent} / 100 * (${compression} - 1))" | bc -l | cut -d '.' -f1)
+
+pool_total=$(format_size ${pool_total_size})
+pool_max=$(format_size ${max_pool_size})
+mem_total=$(format_size ${mem_total})
+mem_free=$(format_size ${mem_free})
+increased_total=$(format_size ${increased})
+
+echo "pool: ${pool_percent}% / ${max_pool_percent}% (${pool_total} / ${pool_max})"
+echo "swap: ${swap} / ${swap_total}"
+echo "compression: $(round ${compression})"
+echo "free: ${mem_free} / ${mem_total}"
+echo "estimated: ${increased_total}"
