@@ -1,0 +1,183 @@
+#!/bin/bash
+
+# export power_supply=BAT1; battery-health
+: ${power_supply:=BAT0}
+if [[ ! -d /sys/class/power_supply/$power_supply ]]; then
+    echo "No such power_supply: '$power_supply'"
+    echo "Use one from:"
+    ls /sys/class/power_supply
+    exit
+fi
+
+if [[ $1 == "info" ]]; then
+    # determine device and battery vendors
+    chassis_type=$(cat /sys/class/dmi/id/chassis_type)
+    case $chassis_type in
+    1) device="Other" ;;
+    2) device="Unknown" ;;
+    3) device="Desktop" ;;
+    4) device="Low Profile Desktop" ;;
+    5) device="Pizza Box" ;;
+    6) device="Mini Tower" ;;
+    7) device="Tower" ;;
+    8) device="Portable" ;;
+    9) device="Laptop" ;;
+    10) device="Notebook" ;;
+    11) device="Hand Held" ;;
+    12) device="Docking Station" ;;
+    13) device="All in One" ;;
+    14) device="Sub Notebook" ;;
+    15) device="Space-saving" ;;
+    16) device="Lunch Box" ;;
+    17) device="Main Server Chassis" ;;
+    18) device="Expansion Chassis" ;;
+    19) device="SubChassis" ;;
+    20) device="Bus Expansion Chassis" ;;
+    21) device="Peripheral Chassis" ;;
+    22) device="RAID Chassis" ;;
+    23) device="Rack Mount Chassis" ;;
+    24) device="Sealed-case PC" ;;
+    25) device="Multi-system chassis" ;;
+    26) device="Compact PCI" ;;
+    27) device="Advanced TCA" ;;
+    28) device="Blade" ;;
+    29) device="Blade Enclosure" ;;
+    30) device="Tablet" ;;
+    31) device="Convertible" ;;
+    32) device="Detachable" ;;
+    33) device="ioT Gateway" ;;
+    34) device="Embedded PC" ;;
+    35) device="Mini PC" ;;
+    36) device="Stick PC" ;;
+    *) device="Cannot determine chassis_type" ;;
+    esac
+
+    echo "Device: $device ($chassis_type)"
+    echo "    sys_vendor:     $(cat /sys/class/dmi/id/sys_vendor)"
+    echo "    product_family: $(cat /sys/class/dmi/id/product_family)"
+    echo "    product_name:   $(cat /sys/class/dmi/id/product_name)"
+
+    if [[ -f /sys/class/power_supply/$power_supply/technology ]]; then
+        tech="$(cat /sys/class/power_supply/$power_supply/technology) "
+    fi
+    echo "Power device: $tech$(cat /sys/class/power_supply/$power_supply/type)"
+    if [[ -f /sys/class/power_supply/$power_supply/manufacturer ]]; then
+        echo "    manufacturer:   $(cat /sys/class/power_supply/$power_supply/manufacturer)"
+    fi
+    if [[ -f /sys/class/power_supply/$power_supply/model_name ]]; then
+        echo "    model_name:     $(cat /sys/class/power_supply/$power_supply/model_name)"
+    fi
+
+    exit 0
+else
+    if [[ -f /sys/class/power_supply/$power_supply/technology ]]; then
+        echo -n "$(cat /sys/class/power_supply/$power_supply/technology) "
+    fi
+    echo "$(cat /sys/class/power_supply/$power_supply/type)"
+fi
+
+# get available data
+# A: charge
+[[ -f /sys/class/power_supply/$power_supply/current_now ]] && current_now=$(cat /sys/class/power_supply/$power_supply/current_now)
+[[ -f /sys/class/power_supply/$power_supply/charge_now ]] && charge_now=$(cat /sys/class/power_supply/$power_supply/charge_now)
+[[ -f /sys/class/power_supply/$power_supply/charge_full ]] && charge_full=$(cat /sys/class/power_supply/$power_supply/charge_full)
+[[ -f /sys/class/power_supply/$power_supply/charge_full_design ]] && charge_full_design=$(cat /sys/class/power_supply/$power_supply/charge_full_design)
+
+# B: energy
+[[ -f /sys/class/power_supply/$power_supply/power_now ]] && power_now=$(cat /sys/class/power_supply/$power_supply/power_now)
+[[ -f /sys/class/power_supply/$power_supply/energy_now ]] && energy_now=$(cat /sys/class/power_supply/$power_supply/energy_now)
+[[ -f /sys/class/power_supply/$power_supply/energy_full ]] && energy_full=$(cat /sys/class/power_supply/$power_supply/energy_full)
+[[ -f /sys/class/power_supply/$power_supply/energy_full_design ]] && energy_full_design=$(cat /sys/class/power_supply/$power_supply/energy_full_design)
+
+# common
+[[ -f /sys/class/power_supply/$power_supply/capacity ]] && capacity=$(cat /sys/class/power_supply/$power_supply/capacity)
+[[ -f /sys/class/power_supply/$power_supply/capacity_level ]] && capacity_level=$(cat /sys/class/power_supply/$power_supply/capacity_level)
+[[ -f /sys/class/power_supply/$power_supply/voltage_now ]] && voltage_now=$(cat /sys/class/power_supply/$power_supply/voltage_now)
+[[ -f /sys/class/power_supply/$power_supply/voltage_min_design ]] && voltage_min_design=$(cat /sys/class/power_supply/$power_supply/voltage_min_design)
+[[ -f /sys/class/power_supply/$power_supply/status ]] && status=$(cat /sys/class/power_supply/$power_supply/status)
+
+# calc missing data
+if [[ -n $charge_now ]]; then
+    # A: energy from charge
+    power_now=$(($voltage_now * $current_now / 1000000))
+    energy_now=$(($voltage_min_design * $charge_now / 1000000))
+    energy_full=$(($voltage_min_design * $charge_full / 1000000))
+    energy_full_design=$(($voltage_min_design * $charge_full_design / 1000000))
+elif [[ -n $energy_now ]]; then
+    # B: charge from energy
+    current_now=$(($power_now * 1000000 / $voltage_now))
+    charge_now=$(($energy_now * 1000000 / $voltage_min_design))
+    charge_full=$(($energy_full * 1000000 / $voltage_min_design))
+    charge_full_design=$(($energy_full_design * 1000000 / $voltage_min_design))
+fi
+
+if [[ -n $charge_full_design ]]; then
+    charge_percent=$(($charge_full * 100 / $charge_full_design))
+    charge_now_percent=$(($charge_now * 100 / $charge_full))
+    charge_now_real_percent=$(($charge_now * 100 / $charge_full_design))
+fi
+
+function row() {
+    # quotes important
+    printf "%-11s %-10s %-10s %-10s\n" "$@"
+}
+
+if [[ -n $capacity ]]; then
+    echo
+    row "Param" "Level" "Capacity" "Status"
+    row "State" "${capacity_level}" "${capacity}%" "${status}"
+fi
+
+if [[ -n $current_now ]]; then
+echo
+    row "Type" "Current" "Voltage" "Power"
+    row "now" "$(($current_now / 1000)) mA" "$(($voltage_now / 1000)) mV" "$(($power_now / 1000)) mW"
+    row "min" "-" "$(($voltage_min_design / 1000)) mV"
+fi
+
+if [[ -n $charge_now ]]; then
+    echo
+    row "Param / At" "Now" "Full" "Design"
+    row "Charge" "$(($charge_now / 1000)) mAh" "$(($charge_full / 1000)) mAh" "$(($charge_full_design / 1000)) mAh"
+    row "Energy" "$(($energy_now / 1000)) mWh" "$(($energy_full / 1000)) mWh" "$(($energy_full_design / 1000)) mWh"
+    row "Charge (%)" "$charge_now_real_percent% ($charge_now_percent%)" "$charge_percent%" "100%"
+fi
+
+if [[ $current_now -gt 0 ]]; then
+    echo
+    echo "Consumption HH:MM"
+    function f() {
+        printf "%02d" $1
+    }
+    function time_to() {
+        time_to_low=$((($energy_now - $2) * 60 / $3))
+        total_work_time=$((($energy_full - $2) * 60 / $3))
+        total_work_time_design=$((($energy_full_design - $2) * 60 / $3))
+        row "$1" "$(f $(($time_to_low / 60))):$(f $(($time_to_low % 60)))" "$(f $(($total_work_time / 60))):$(f $(($total_work_time % 60)))" "$(f $(($total_work_time_design / 60))):$(f $(($total_work_time_design % 60)))"
+    }
+
+    energy_low=$(($energy_full_design * 1 / 5))
+
+    time_to "low" $energy_low $power_now
+    time_to "empty" 0 $power_now
+
+    if [[ $1 == "consumption" ]]; then
+        time_to "low   (5W)" $energy_low 5000000
+        time_to "empty (5W)" 0 5000000
+
+        time_to "low   (10W)" $energy_low 10000000
+        time_to "empty (10W)" 0 10000000
+
+        time_to "low   (15W)" $energy_low 15000000
+        time_to "empty (15W)" 0 15000000
+
+        time_to "low   (20W)" $energy_low 20000000
+        time_to "empty (20W)" 0 20000000
+
+        time_to "low   (25W)" $energy_low 25000000
+        time_to "empty (25W)" 0 25000000
+
+        time_to "low   (30W)" $energy_low 30000000
+        time_to "empty (30W)" 0 30000000
+    fi
+fi
