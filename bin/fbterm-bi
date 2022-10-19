@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# fbterm-bi: a wrapper script to enable background image with fbterm
+# usage: fbterm-bi /path/to/image fbterm-options
+# uses imagemagick convert
+
+echo -ne "\e[?25l" # hide cursor
+
+echo "Converting $1"
+convert -fill '#202020' -colorize 80% "$1" /tmp/background
+
+echo "Saving framebuffer"
+(
+    sleep 0.5
+    cat /dev/fb0 >/tmp/fb-background.fbimg
+    sleep 0.5
+    pkill fbi
+) &
+fbi -d /dev/fb0 -t 2 -1 --noverbose --autozoom --fitwidth /tmp/background
+
+# remove "$1" from "$@" as it is image path
+shift
+
+wait
+echo "/dev/fb0 saved to /tmp/fb-background.fbimg"
+
+read -r -p "Launch fbterm? [Y/n] " response
+case "$response" in
+[nN][oO] | [nN])
+    exit 1
+    ;;
+esac
+
+clear
+
+export FBTERM_BACKGROUND_IMAGE=1
+(cat /tmp/fb-background.fbimg >/dev/fb0 &) >/dev/null
+sleep 0.5
+fbterm "$@"
