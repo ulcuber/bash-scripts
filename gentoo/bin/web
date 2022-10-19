@@ -1,0 +1,27 @@
+#!/bin/bash
+
+cmd=${1}
+
+case $cmd in
+restart)
+    services="apache2 php-fpm-php7.4 php-fpm-php8.1"
+    ;;
+start | stop | *)
+    services="apache2 mysql redis php-fpm-php7.4 php-fpm-php8.1"
+    if [[ -z "$cmd" ]]; then
+        command=start
+    fi
+    ;;
+esac
+
+GREEN="\e[0;32m"
+BOLD="\e[0;1m"
+RESET="\e[0;0m"
+
+for service in $services; do
+    echo -e "${BOLD}${command}${RESET} ${GREEN}${service}${RESET}: "
+    sudo rc-service $service $command
+    echo $(rc-service $service status | grep status | cut -d ':' -f2)
+done
+
+echo -e "${GREEN}OK${RESET}"
