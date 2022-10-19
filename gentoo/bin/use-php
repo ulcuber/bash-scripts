@@ -1,0 +1,41 @@
+#!/bin/bash
+
+version=${1}
+
+GREEN="\e[0;32m"
+BOLD="\e[0;1m"
+RESET="\e[0;0m"
+
+if [[ -z ${version} ]]; then
+    echo "cli:"
+    eselect php list cli
+    echo "fpm:"
+    eselect php list fpm
+    echo "apache2:"
+    eselect php list apache2
+
+    max=$(eselect php list cli | wc -l)
+
+    while :; do
+        read -ep "Select version 1-$max: " number
+        [[ $number =~ ^[[:digit:]]+$ ]] || continue
+        ((((number = (10#$number)) <= $max) && number > 0)) || continue
+        break
+    done
+
+    version=$(eselect php list cli | head -n $number | tail -n1 | grep --perl-regexp --only-matching 'php\d+\.\d+')
+    echo -e "Selected [$number]   ${BOLD}$version${RESET}"
+    echo
+fi
+
+echo -e "${BOLD}cli:${RESET}"
+sudo eselect php set cli ${version} && echo -e "${GREEN}OK${RESET}"
+
+if [[ ! $(eselect php list fpm | grep "none found") ]]; then
+    echo -e "${BOLD}fpm:${RESET}"
+    sudo eselect php set fpm ${version} && echo -e "${GREEN}OK${RESET}"
+fi
+if [[ ! $(eselect php list apache2 | grep "none found") ]]; then
+    echo -e "${BOLD}apache2:${RESET}"
+    sudo eselect php set apache2 ${version} && echo -e "${GREEN}OK${RESET}" && sudo rc-service apache2 restart
+fi
