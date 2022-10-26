@@ -1,14 +1,17 @@
 #!/bin/bash
 
-cmd=${1}
+command=${1}
 
-case $cmd in
+case $command in
 restart)
+    services="apache2 php-fpm-php7.4 php-fpm-php8.1"
+    ;;
+reload)
     services="apache2 php-fpm-php7.4 php-fpm-php8.1"
     ;;
 start | stop | *)
     services="apache2 mysql redis php-fpm-php7.4 php-fpm-php8.1"
-    if [[ -z "$cmd" ]]; then
+    if [[ -z "$command" ]]; then
         command=start
     fi
     ;;
