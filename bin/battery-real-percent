@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# export power_supply=BAT1; battery-health
+: ${power_supply:=BAT0}
+if [[ ! -d /sys/class/power_supply/$power_supply ]]; then
+    echo "No such power_supply: '$power_supply'"
+    echo "Use one from:"
+    ls /sys/class/power_supply
+    exit
+fi
+
+power_supply=BAT0
+# get available data
+# A: charge
+[[ -f /sys/class/power_supply/${power_supply}/charge_now ]] && charge_now=$(cat /sys/class/power_supply/${power_supply}/charge_now)
+[[ -f /sys/class/power_supply/${power_supply}/charge_full_design ]] && charge_full_design=$(cat /sys/class/power_supply/${power_supply}/charge_full_design)
+# B: energy
+[[ -f /sys/class/power_supply/${power_supply}/energy_now ]] && energy_now=$(cat /sys/class/power_supply/${power_supply}/energy_now)
+[[ -f /sys/class/power_supply/${power_supply}/energy_full_design ]] && energy_full_design=$(cat /sys/class/power_supply/${power_supply}/energy_full_design)
+# common
+[[ -f /sys/class/power_supply/${power_supply}/voltage_min_design ]] && voltage_min_design=$(cat /sys/class/power_supply/${power_supply}/voltage_min_design)
+
+# calc missing data
+if [[ -n ${energy_now} ]]; then
+    # B: charge from energy
+    charge_now=$((${energy_now} * 1000000 / ${voltage_min_design}))
+    charge_full_design=$((${energy_full_design} * 1000000 / ${voltage_min_design}))
+fi
+
+charge_now_real_percent=$((${charge_now} * 100 / ${charge_full_design}))
+
+echo "${charge_now_real_percent}%"
