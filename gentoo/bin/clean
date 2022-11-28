@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# clean outdated binary packages from PKGDIR
+sudo eclean distfiles
+# why kept? to downgrade without re-downloading
+
+# clean outdated packages sources files from DISTDIR
+sudo eclean packages
+
+echo
+
+# remove installed but not in @world
+sudo emerge --ask --depclean --quiet
+# dependency aware version of --unmerge
+# better run after:
+echo "sudo emerge --ask --update --newuse --deep --quiet --verbose @world"
+
+echo
+
+eclean-kernel --pretend --all
+# Remove old kernel versions
+sudo eclean-kernel --ask --all
+
+echo
+
+echo "revdep-rebuild (check broken packages)"
+revdep-rebuild -p
