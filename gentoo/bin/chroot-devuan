@@ -1,15 +1,15 @@
 #!/bin/bash
 
 # see /etc/fstab
-sudo mount /mnt/devuan
+mountpoint -q /mnt/devuan || sudo mount /mnt/devuan
 
-sudo mount --rbind /dev /mnt/devuan/dev
+mountpoint -q /mnt/devuan/dev || sudo mount --rbind /dev /mnt/devuan/dev
 sudo mount --make-rslave /mnt/devuan/dev
-sudo mount -t proc /proc /mnt/devuan/proc
-sudo mount --rbind /sys /mnt/devuan/sys
+mountpoint -q /mnt/devuan/proc || sudo mount -t proc /proc /mnt/devuan/proc
+mountpoint -q /mnt/devuan/sys || sudo mount --rbind /sys /mnt/devuan/sys
 sudo mount --make-rslave /mnt/devuan/sys
-sudo mount --rbind /tmp /mnt/devuan/tmp
-sudo mount --bind /run /mnt/devuan/run
+mountpoint -q /mnt/devuan/tmp || sudo mount --rbind /tmp /mnt/devuan/tmp
+mountpoint -q /mnt/devuan/run || sudo mount --bind /run /mnt/devuan/run
 
 sudo cp /etc/resolv.conf /mnt/devuan/etc/resolv.conf
 sudo cp /etc/hosts /mnt/devuan/etc/hosts

@@ -1,5 +1,6 @@
-sudo mount ~/yadisk
-sudo mount ~/storage
+mountpoint -q ~/yadisk || sudo mount ~/yadisk
+mountpoint -q ~/storage || sudo mount ~/storage
+
 sudo /etc/init.d/dbus start
 
 if ! shopt -oq posix; then
