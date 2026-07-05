@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# mysql-table <database> <table>
+if [[ -n $2 ]]; then
+    DB_DATABASE=$1
+    TABLE=$2
+# mysql-table <table>
+else
+    if [[ -f .env ]]; then
+        DB_DATABASE=$(grep --perl-regexp --only-matching '(?<=^DB_DATABASE=).*' .env | sed -e 's/^"//' -e 's/"$//')
+    fi
+    if [[ -z $DB_DATABASE ]]; then
+        echo "Cannot find .env with DB_DATABASE in $(pwd)"
+        echo "Specify database:"
+        echo "mysql-table <database> <table>"
+        echo "or go to project dir"
+        exit
+    fi
+    if [[ -z $1 ]]; then
+        echo "Missing table arg:"
+        echo "mysql-table <database> <table>"
+        exit
+    fi
+    TABLE=$1
+fi
+
+mysql -e "show create table \`$TABLE\` \\G" "$DB_DATABASE" | tail -n+3 | cut -d ':' -f2 | cut -d ' ' -f1 --complement | grcat ~/.config/grcat/mysql

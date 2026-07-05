@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# export power_supply=BAT1; battery-health
-: ${power_supply:=BAT0}
-if [[ ! -d /sys/class/power_supply/$power_supply ]]; then
-    echo "No such power_supply: '$power_supply'"
+BATS=(/sys/class/power_supply/BAT*)
+: "${BAT:=${BATS[0]}}"
+if [[ ! -d "$BAT" ]]; then
+    echo "No such power_supply: '$BAT'"
     echo "Use one from:"
     ls /sys/class/power_supply
     exit
@@ -57,64 +57,64 @@ if [[ $1 == "info" ]]; then
     echo "    product_family: $(cat /sys/class/dmi/id/product_family)"
     echo "    product_name:   $(cat /sys/class/dmi/id/product_name)"
 
-    if [[ -f /sys/class/power_supply/$power_supply/technology ]]; then
-        tech="$(cat /sys/class/power_supply/$power_supply/technology) "
+    if [[ -f $BAT/technology ]]; then
+        tech="$(cat "$BAT/technology") "
     fi
-    echo "Power device: $tech$(cat /sys/class/power_supply/$power_supply/type)"
-    if [[ -f /sys/class/power_supply/$power_supply/manufacturer ]]; then
-        echo "    manufacturer:   $(cat /sys/class/power_supply/$power_supply/manufacturer)"
+    echo "Power device: $tech$(cat "$BAT/type")"
+    if [[ -f $BAT/manufacturer ]]; then
+        echo "    manufacturer:   $(cat "$BAT/manufacturer")"
     fi
-    if [[ -f /sys/class/power_supply/$power_supply/model_name ]]; then
-        echo "    model_name:     $(cat /sys/class/power_supply/$power_supply/model_name)"
+    if [[ -f $BAT/model_name ]]; then
+        echo "    model_name:     $(cat "$BAT/model_name")"
     fi
 
     exit 0
 else
-    if [[ -f /sys/class/power_supply/$power_supply/technology ]]; then
-        echo -n "$(cat /sys/class/power_supply/$power_supply/technology) "
+    if [[ -f $BAT/technology ]]; then
+        echo -n "$(cat "$BAT/technology") "
     fi
-    echo "$(cat /sys/class/power_supply/$power_supply/type)"
+    echo "$(cat "$BAT/type")"
 fi
 
 # get available data
 # A: charge
-[[ -f /sys/class/power_supply/$power_supply/current_now ]] && current_now=$(cat /sys/class/power_supply/$power_supply/current_now)
-[[ -f /sys/class/power_supply/$power_supply/charge_now ]] && charge_now=$(cat /sys/class/power_supply/$power_supply/charge_now)
-[[ -f /sys/class/power_supply/$power_supply/charge_full ]] && charge_full=$(cat /sys/class/power_supply/$power_supply/charge_full)
-[[ -f /sys/class/power_supply/$power_supply/charge_full_design ]] && charge_full_design=$(cat /sys/class/power_supply/$power_supply/charge_full_design)
+[[ -f $BAT/current_now ]] && current_now=$(cat "$BAT/current_now")
+[[ -f $BAT/charge_now ]] && charge_now=$(cat "$BAT/charge_now")
+[[ -f $BAT/charge_full ]] && charge_full=$(cat "$BAT/charge_full")
+[[ -f $BAT/charge_full_design ]] && charge_full_design=$(cat "$BAT/charge_full_design")
 
 # B: energy
-[[ -f /sys/class/power_supply/$power_supply/power_now ]] && power_now=$(cat /sys/class/power_supply/$power_supply/power_now)
-[[ -f /sys/class/power_supply/$power_supply/energy_now ]] && energy_now=$(cat /sys/class/power_supply/$power_supply/energy_now)
-[[ -f /sys/class/power_supply/$power_supply/energy_full ]] && energy_full=$(cat /sys/class/power_supply/$power_supply/energy_full)
-[[ -f /sys/class/power_supply/$power_supply/energy_full_design ]] && energy_full_design=$(cat /sys/class/power_supply/$power_supply/energy_full_design)
+[[ -f $BAT/power_now ]] && power_now=$(cat "$BAT/power_now")
+[[ -f $BAT/energy_now ]] && energy_now=$(cat "$BAT/energy_now")
+[[ -f $BAT/energy_full ]] && energy_full=$(cat "$BAT/energy_full")
+[[ -f $BAT/energy_full_design ]] && energy_full_design=$(cat "$BAT/energy_full_design")
 
 # common
-[[ -f /sys/class/power_supply/$power_supply/capacity ]] && capacity=$(cat /sys/class/power_supply/$power_supply/capacity)
-[[ -f /sys/class/power_supply/$power_supply/capacity_level ]] && capacity_level=$(cat /sys/class/power_supply/$power_supply/capacity_level)
-[[ -f /sys/class/power_supply/$power_supply/voltage_now ]] && voltage_now=$(cat /sys/class/power_supply/$power_supply/voltage_now)
-[[ -f /sys/class/power_supply/$power_supply/voltage_min_design ]] && voltage_min_design=$(cat /sys/class/power_supply/$power_supply/voltage_min_design)
-[[ -f /sys/class/power_supply/$power_supply/status ]] && status=$(cat /sys/class/power_supply/$power_supply/status)
+[[ -f $BAT/capacity ]] && capacity=$(cat "$BAT/capacity")
+[[ -f $BAT/capacity_level ]] && capacity_level=$(cat "$BAT/capacity_level")
+[[ -f $BAT/voltage_now ]] && voltage_now=$(cat "$BAT/voltage_now")
+[[ -f $BAT/voltage_min_design ]] && voltage_min_design=$(cat "$BAT/voltage_min_design")
+[[ -f $BAT/status ]] && status=$(cat "$BAT/status")
 
 # calc missing data
 if [[ -n $charge_now ]]; then
     # A: energy from charge
-    power_now=$(($voltage_now * $current_now / 1000000))
-    energy_now=$(($voltage_min_design * $charge_now / 1000000))
-    energy_full=$(($voltage_min_design * $charge_full / 1000000))
-    energy_full_design=$(($voltage_min_design * $charge_full_design / 1000000))
+    power_now=$((voltage_now * current_now / 1000000))
+    energy_now=$((voltage_min_design * charge_now / 1000000))
+    energy_full=$((voltage_min_design * charge_full / 1000000))
+    energy_full_design=$((voltage_min_design * charge_full_design / 1000000))
 elif [[ -n $energy_now ]]; then
     # B: charge from energy
-    current_now=$(($power_now * 1000000 / $voltage_now))
-    charge_now=$(($energy_now * 1000000 / $voltage_min_design))
-    charge_full=$(($energy_full * 1000000 / $voltage_min_design))
-    charge_full_design=$(($energy_full_design * 1000000 / $voltage_min_design))
+    current_now=$((power_now * 1000000 / voltage_now))
+    charge_now=$((energy_now * 1000000 / voltage_min_design))
+    charge_full=$((energy_full * 1000000 / voltage_min_design))
+    charge_full_design=$((energy_full_design * 1000000 / voltage_min_design))
 fi
 
 if [[ -n $charge_full_design ]]; then
-    charge_percent=$(($charge_full * 100 / $charge_full_design))
-    charge_now_percent=$(($charge_now * 100 / $charge_full))
-    charge_now_real_percent=$(($charge_now * 100 / $charge_full_design))
+    charge_percent=$((charge_full * 100 / charge_full_design))
+    charge_now_percent=$((charge_now * 100 / charge_full))
+    charge_now_real_percent=$((charge_now * 100 / charge_full_design))
 fi
 
 function row() {
@@ -129,55 +129,72 @@ if [[ -n $capacity ]]; then
 fi
 
 if [[ -n $current_now ]]; then
-echo
+    echo
     row "Type" "Current" "Voltage" "Power"
-    row "now" "$(($current_now / 1000)) mA" "$(($voltage_now / 1000)) mV" "$(($power_now / 1000)) mW"
-    row "min" "-" "$(($voltage_min_design / 1000)) mV"
+    row "now" "$((current_now / 1000)) mA" "$((voltage_now / 1000)) mV" "$((power_now / 1000)) mW"
+    row "min" "-" "$((voltage_min_design / 1000)) mV"
 fi
 
 if [[ -n $charge_now ]]; then
     echo
     row "Param / At" "Now" "Full" "Design"
-    row "Charge" "$(($charge_now / 1000)) mAh" "$(($charge_full / 1000)) mAh" "$(($charge_full_design / 1000)) mAh"
-    row "Energy" "$(($energy_now / 1000)) mWh" "$(($energy_full / 1000)) mWh" "$(($energy_full_design / 1000)) mWh"
+    row "Charge" "$((charge_now / 1000)) mAh" "$((charge_full / 1000)) mAh" "$((charge_full_design / 1000)) mAh"
+    row "Energy" "$((energy_now / 1000)) mWh" "$((energy_full / 1000)) mWh" "$((energy_full_design / 1000)) mWh"
     row "Charge (%)" "$charge_now_real_percent% ($charge_now_percent%)" "$charge_percent%" "100%"
 fi
 
 if [[ $current_now -gt 0 ]]; then
     echo
-    echo "Consumption HH:MM"
     function f() {
-        printf "%02d" $1
-    }
-    function time_to() {
-        time_to_low=$((($energy_now - $2) * 60 / $3))
-        total_work_time=$((($energy_full - $2) * 60 / $3))
-        total_work_time_design=$((($energy_full_design - $2) * 60 / $3))
-        row "$1" "$(f $(($time_to_low / 60))):$(f $(($time_to_low % 60)))" "$(f $(($total_work_time / 60))):$(f $(($total_work_time % 60)))" "$(f $(($total_work_time_design / 60))):$(f $(($total_work_time_design % 60)))"
+        printf "%02d" "$1"
     }
 
-    energy_low=$(($energy_full_design * 1 / 5))
+    energy_low=$((energy_full_design * 1 / 5))
 
-    time_to "low" $energy_low $power_now
-    time_to "empty" 0 $power_now
+    if [[ "$status" == "Charging" ]]; then
+        echo "Charging HH:MM"
+        function time_to() {
+            time_to_full=$((($2 - energy_now) * 60 / $3))
+            if [[ "$time_to_full" -lt 0 ]]; then
+                time_to_full=0
+            fi
+            total_charge_time=$(((energy_full - energy_now) * 60 / $3))
+            total_charge_time_design=$(((energy_full_design - energy_now) * 60 / $3))
+            row "$1" "$(f $((time_to_full / 60))):$(f $((time_to_full % 60)))" "$(f $((total_charge_time / 60))):$(f $((total_charge_time % 60)))" "$(f $((total_charge_time_design / 60))):$(f $((total_charge_time_design % 60)))"
+        }
 
-    if [[ $1 == "consumption" ]]; then
-        time_to "low   (5W)" $energy_low 5000000
-        time_to "empty (5W)" 0 5000000
+        time_to "low" "$energy_low" "$power_now"
+    else
+        echo "Consumption HH:MM"
+        function time_to() {
+            time_to_low=$(((energy_now - $2) * 60 / $3))
+            total_work_time=$(((energy_full - $2) * 60 / $3))
+            total_work_time_design=$(((energy_full_design - $2) * 60 / $3))
+            row "$1" "$(f $((time_to_low / 60))):$(f $((time_to_low % 60)))" "$(f $((total_work_time / 60))):$(f $((total_work_time % 60)))" "$(f $((total_work_time_design / 60))):$(f $((total_work_time_design % 60)))"
+        }
+        time_to "low" "$energy_low" "$power_now"
+        time_to "empty" 0 "$power_now"
 
-        time_to "low   (10W)" $energy_low 10000000
-        time_to "empty (10W)" 0 10000000
+        if [[ $1 == "consumption" ]]; then
+            time_to "low   (5W)" "$energy_low" 5000000
+            time_to "empty (5W)" 0 5000000
 
-        time_to "low   (15W)" $energy_low 15000000
-        time_to "empty (15W)" 0 15000000
+            time_to "low   (10W)" "$energy_low" 10000000
+            time_to "empty (10W)" 0 10000000
 
-        time_to "low   (20W)" $energy_low 20000000
-        time_to "empty (20W)" 0 20000000
+            time_to "low   (15W)" "$energy_low" 15000000
+            time_to "empty (15W)" 0 15000000
 
-        time_to "low   (25W)" $energy_low 25000000
-        time_to "empty (25W)" 0 25000000
+            time_to "low   (20W)" "$energy_low" 20000000
+            time_to "empty (20W)" 0 20000000
 
-        time_to "low   (30W)" $energy_low 30000000
-        time_to "empty (30W)" 0 30000000
+            time_to "low   (25W)" "$energy_low" 25000000
+            time_to "empty (25W)" 0 25000000
+
+            time_to "low   (30W)" "$energy_low" 30000000
+            time_to "empty (30W)" 0 30000000
+        fi
     fi
 fi
+
+# vim: expandtab ts=4 sw=4 ai

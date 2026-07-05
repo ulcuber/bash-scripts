@@ -1,0 +1,125 @@
+#!/bin/bash
+
+function cpu_row() {
+	# quotes important
+	printf "%-5s %-12s %-10s %-15s %-6s %-6s\n" "$@"
+}
+
+function gpu_row() {
+	# quotes important
+	printf "%-24s %-8s %-6s %-9s %-18s %-8s\n" "$@"
+}
+
+function sensor_row() {
+	# quotes important
+	printf "%-9s %-9s %-9s %-9s %-9s %-9s\n" "$@"
+}
+
+function sensor() {
+	temp=$(echo "$1" | pcre2grep -M "$2.*\n(.+\n)*" | pcre2grep "$3:" | pcre2grep -o '\+?\d+.\d')
+	if [[ -n "$temp" ]]; then
+		echo "${temp}$4"
+	else
+		echo 'N/A'
+	fi
+}
+
+base_path=/sys/devices/system/cpu
+
+cpus=($(ls "$base_path" | grep -P 'cpu\d+'))
+cpus_count=${#cpus[@]}
+
+declare -a mins=()
+declare -a bases=()
+declare -a maxes=()
+
+for ((i = 0; i < cpus_count; i++)); do
+	cpu=${cpus[$i]}
+	freq_path=$base_path/$cpu/cpufreq
+	mins[i]=$(($(cat "$freq_path/scaling_min_freq") / 1000))
+	maxes[i]=$(($(cat "$freq_path/scaling_max_freq") / 1000))
+done
+
+gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader)
+gpu_mem_total=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader)
+
+# cpus header + cpus + empty
+gpu_header_line=$((cpus_count + 2))
+gpu_line=$((gpu_header_line + 1))
+sensors_header_line=$((gpu_line + 2))
+sensors_line=$((sensors_header_line + 1))
+battery_header_line=$((sensors_line + 2))
+battery_line=$((battery_header_line + 1))
+bluetooth_line=$((battery_line + 1))
+
+clear
+cpu_row "CPU" "Gov" "Cur" "Min|Max" "Usage" "Temp"
+
+tput cup $gpu_header_line 0
+gpu_row "Name" "Mode" "Pstate" "Free Mem" "Memory" "Fan"
+
+tput cup $sensors_header_line 0
+sensor_row "Wi-Fi" "PCI" "GPU" "Drive"
+
+tput cup $battery_header_line 0
+printf "%-20s %-12s" "PCI power"
+
+while :; do
+	tput cup 1 0
+
+	sensors_out=$(sensors -u 2>&1)
+
+	for ((i = 0; i < cpus_count; i++)); do
+		cpu=${cpus[$i]}
+		freq_path="$base_path/$cpu/cpufreq"
+		cur_freq=$(($(cat "$freq_path/scaling_cur_freq") / 1000))
+		gov=$(cat "$freq_path/scaling_governor")
+		min_freq="${mins[$i]}"
+		max_freq="${maxes[$i]}"
+		percent=$(( 100 * (cur_freq - min_freq) / (max_freq - min_freq) ))
+		cpu_temp=$(sensor "$sensors_out" 'coretemp' "temp$(($i + 2))_input" 'C')
+
+		cpu_row "$cpu" "$gov" "${cur_freq}MHz" "${min_freq}|${max_freq}MHz" "${percent}%" "$cpu_temp"
+	done
+
+	tput cup $gpu_line 0
+	gpu_pstate=$(nvidia-smi --query-gpu=pstate --format=csv,noheader)
+	gpu_fan_speed=$(nvidia-smi --query-gpu=fan.speed --format=csv,noheader)
+	gpu_mem_free=$(nvidia-smi --query-gpu=memory.free --format=csv,noheader)
+	gpu_mem_used=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader)
+	gpu_mode=$(nvidia-smi --query-gpu=compute_mode --format=csv,noheader)
+	gpu_row "$gpu_name" "$gpu_mode" "$gpu_pstate" "${gpu_mem_free}" "${gpu_mem_used} / ${gpu_mem_total}" "$gpu_fan_speed"
+
+	tput cup $sensors_line 0
+	wifi_temp=$(sensor "$sensors_out" 'wifi' 'temp1_input' 'C')
+	pci_temp=$(sensor "$sensors_out" 'k10temp-pci-00c3' 'temp1_input' 'C')
+	drive_temp=$(sensor "$sensors_out" 'drivetemp' 'temp1_input' 'C')
+	gpu_temp="$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader)C"
+	sensor_row "$wifi_temp" "$pci_temp" "$gpu_temp" "$drive_temp"
+
+	tput cup $battery_line 0
+	pci_power=$(sensor "$sensors_out" 'fam15h_power-pci-00c4' 'power1_input' 'W')
+	pci_power_max=$(sensor "$sensors_out" 'fam15h_power-pci-00c4' 'power1_crit' 'W')
+	printf "%-7s %-13s %-12s\n" "$pci_power / $pci_power_max"
+
+	tput cup $bluetooth_line 0
+	tput el
+
+	if rc-service bluetooth status 1>/dev/null 2>&1; then
+		while read -r line
+		do
+			id=$(echo "$line" | cut -d ' ' -f2)
+			name=$(echo "$line" | cut -d ' ' --complement -f1,2)
+			device_battery=$(bluetoothctl info "$id" | grep 'Battery Percentage' | pcre2grep -o '(?<=\()\d+')
+			if [[ -n "$device_battery" ]]; then
+				printf "%-15s %-5s" "$name" "${device_battery}%"
+			fi
+		done < <(bluetoothctl devices)
+		tput cud1
+	fi
+
+	tput cud1
+	free -h
+
+	sleep 2
+done

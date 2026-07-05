@@ -1,0 +1,3 @@
+#!/bin/bash
+
+cat "$@" | tr -c '[:alnum:]' '\n' | tr -sc '[:alnum:]' | sort | uniq -icd | sort -h

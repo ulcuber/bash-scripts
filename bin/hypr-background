@@ -1,0 +1,24 @@
+#!/bin/bash
+
+wallpapers_dir="$HOME/storage/Pictures/wallpapers"
+wallpapers_dual="$HOME/storage/Pictures/wallpapers/dual"
+wallpapers_video="$HOME/storage/Videos/video-wallpapers"
+
+if [[ $RANDOM -ge 1000 ]]; then
+    # different random images on all monitors
+    for monitor in $(hyprctl monitors -j | jq --raw-output ".[].name"); do
+        if [[ $RANDOM -ge 16384 ]]; then
+            wallpaper="$(find "$wallpapers_dir" -type f | sort -R | tail -1)"
+            hyprctl hyprpaper preload "$wallpaper"
+            hyprctl hyprpaper wallpaper "$monitor,$wallpaper"
+        else
+            wallpaper="$(find "$wallpapers_video" -type f | sort -R | tail -1)"
+            mpvpaper -p -o "no-audio loop" "$monitor" "$wallpaper"
+        fi
+    done
+else
+    wallpaper="$(find "$wallpapers_dual" -type f | sort -R | tail -1)"
+
+    # all monitors as one
+    hyprctl hyprpaper wallpaper "$wallpaper"
+fi

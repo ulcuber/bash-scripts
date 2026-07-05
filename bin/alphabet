@@ -1,0 +1,15 @@
+#!/bin/bash
+
+letters="A B C D E F G H I J K L M N O P Q R S T U V W X Y Z"
+
+function vertical() {
+    for letter in $letters; do
+        echo "$letter"
+    done
+}
+
+if [[ "$1" == "v" ]]; then
+    snote -s 14 "$(vertical)"
+else
+    snote -s 22 "$letters"
+fi

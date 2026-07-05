@@ -15,6 +15,8 @@ sudo emerge --ask --depclean --quiet
 # better run after:
 echo "sudo emerge --ask --update --newuse --deep --quiet --verbose @world"
 
+sudo perl-cleaner --all
+
 echo
 
 eclean-kernel --pretend --all
@@ -24,4 +26,4 @@ sudo eclean-kernel --ask --all
 echo
 
 echo "revdep-rebuild (check broken packages)"
-revdep-rebuild -p
+sudo revdep-rebuild -p

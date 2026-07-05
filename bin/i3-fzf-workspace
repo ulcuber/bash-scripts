@@ -1,0 +1,11 @@
+#!/bin/bash
+
+workspace=$(i3-msg -t get_workspaces | jq -r '.[] | select(.focused==false).name' | fzf)
+
+echo "$workspace"
+
+if [[ -z "$workspace" ]]; then
+    exit 0
+fi
+
+i3-msg workspace "$workspace"

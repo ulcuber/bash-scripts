@@ -1,0 +1,9 @@
+#!/bin/bash
+
+backlight="$(ls /sys/class/backlight)"
+brightness=$(cat "/sys/class/backlight/$backlight/brightness")
+max_brightness=$(cat "/sys/class/backlight/$backlight/max_brightness")
+
+brightness_percent=$((brightness * 100 / max_brightness))
+
+echo "${brightness_percent}%"

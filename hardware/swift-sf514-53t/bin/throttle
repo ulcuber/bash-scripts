@@ -1,0 +1,5 @@
+#!/bin/bash
+
+mv /tmp/new_throttle_counts /tmp/throttle_counts
+cat /sys/devices/system/cpu/cpu*/thermal_throttle/core_throttle_count > /tmp/new_throttle_counts
+diff /tmp/throttle_counts /tmp/new_throttle_counts

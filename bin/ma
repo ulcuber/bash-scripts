@@ -1,0 +1,14 @@
+#!/bin/bash
+
+if [[ -z $2 ]]; then
+    echo "make:migration:schema add_{field}_to_{table}_table"
+    echo "ma <table> <field:type:option>"
+    exit 1
+fi
+
+table=$1
+field=$(echo "$2" | cut -d ':' -f1)
+
+set -x
+
+./artisan make:migration:schema "add_${field}_to_${table}_table" --schema="$2"

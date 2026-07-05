@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# will not affect OpenBLAS
+
+# inverted taskset
+pid=${1:-1}
+cpus=$2
+
+subtasks() {
+    parent_pid=$1
+    prefix="$2 "
+
+    for pid in $(pgrep -P "${parent_pid}" | tr '\n' ' '); do
+        if [[ -z "$pid" ]]; then
+            break
+        fi
+        if [[ -n "$cpus" ]]; then
+            task=$(sudo taskset -cp "${cpus}" "${pid}" 2>&1 | perl -CS -pe "s/(\n)/\1$prefix/g" || exit 1)
+        else
+            task=$(taskset -p "${pid}" 2>&1)
+        fi
+        echo "${prefix}$(ps --no-headers -p "${pid}" -o comm) ${task}"
+        subtasks "$pid" "$prefix"
+    done
+}
+
+if [[ -n "$cpus" ]]; then
+    task=$(sudo taskset -cp "${cpus}" "${pid}" || exit 1)
+else
+    task=$(taskset -p "${pid}")
+fi
+
+echo "$(ps --no-headers -p "${pid}" -o comm) ${task}"
+subtasks "$pid"

@@ -1,0 +1,10 @@
+#!/bin/bash
+
+EN='~@#$^&qwertyuiop\[\]asdfghjkl;'\''zxcvbnm,.\/QWERTYUIOP{}ASDFGHJKL:"ZXCVBNM<>?'
+RU='Ё"№;:?йцукенгшщзхъфывапролджэячсмитьбю.ЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ,'
+
+if [ -z "$*" ]; then
+    cat | sed "y/$EN/$RU/"
+else
+    echo "$*" | sed "y/$EN/$RU/"
+fi

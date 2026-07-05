@@ -1,0 +1,13 @@
+#!/bin/bash
+
+if [[ -z $2 ]]; then
+    echo "make:migration:schema create_{table}_table"
+    echo "ms <table> <field:type:option,...>"
+    exit 1
+fi
+
+table=$1
+
+set -x
+
+./artisan make:migration:schema "create_${table}_table" --schema="$2"

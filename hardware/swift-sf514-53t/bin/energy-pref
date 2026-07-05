@@ -1,0 +1,89 @@
+#!/bin/bash
+
+nums=${1:-[0-9]}
+
+mapfile -t cpu_paths < <(find /sys/devices/system/cpu -maxdepth 1 -type d -regextype egrep -regex "/sys/devices/system/cpu/cpu${nums}" | sort)
+
+for cpu_path in "${cpu_paths[@]}"; do
+    echo "$cpu_path"
+done
+
+read -p "Configure selected CPUs? [y/N]:" -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    # handle exits from shell or function but don't exit interactive shell
+    [[ "$0" = "$BASH_SOURCE" ]] && exit 1 || return 1
+fi
+
+cpu_path="${cpu_paths[0]}"
+freq_path="$cpu_path/cpufreq"
+
+current_gov=$(cat "$freq_path/scaling_governor")
+read -ra govs < <(cat "$freq_path/scaling_available_governors")
+declare -a list=()
+for gov in "${govs[@]}"; do
+    list+=("$gov" "desc" "status")
+done
+govs_count=${#govs[@]}
+selected=$(dialog --erase-on-exit \
+    --title "Change governor from '$current_gov'" \
+    --radiolist "Available scaling governors" \
+    "$((govs_count + 10))" "$((COLUMNS / 2))" "$govs_count" \
+    "${list[@]}" \
+    3>&1 1>&2 2>&3 3>&-)
+
+if [[ -n "$selected" ]]; then
+    for cpu_path in "${cpu_paths[@]}"; do
+        [[ -f "$cpu_path/online" && "$(cat $cpu_path/online)" == "0" ]] && continue
+        freq_path="$cpu_path/cpufreq"
+        echo "$selected" | sudo tee "$freq_path/scaling_governor" || exit 1
+    done
+    if [[ "$selected" == "performance" ]]; then
+        exit 0
+    fi
+fi
+
+freq_path="$cpu_path/cpufreq"
+current_pref=$(cat "$freq_path/energy_performance_preference")
+read -ra prefs < <(cat "$freq_path/energy_performance_available_preferences")
+declare -a list=()
+for pref in "${prefs[@]}"; do
+    list+=("$pref" "desc" "status")
+done
+prefs_count=${#prefs[@]}
+selected=$(dialog --erase-on-exit \
+    --title "Change energy performance preference from '$current_pref'" \
+    --radiolist "Available energy performance preferences" \
+    "$((prefs_count + 10))" "$((COLUMNS / 2))" "$prefs_count" \
+    "${list[@]}" \
+    3>&1 1>&2 2>&3 3>&-)
+
+if [[ -n "$selected" ]]; then
+    for cpu_path in "${cpu_paths[@]}"; do
+        [[ -f "$cpu_path/online" && "$(cat $cpu_path/online)" == "0" ]] && continue
+        freq_path="$cpu_path/cpufreq"
+        echo "$selected" | sudo tee "$freq_path/energy_performance_preference" || exit 1
+    done
+fi
+
+bias_path="$cpu_path/power/energy_perf_bias"
+current_bias=$(cat "$bias_path")
+declare -a list=()
+bias_count=15
+for ((i = 0; i <= bias_count; i++)); do
+    list+=("$i" "desc" "status")
+done
+selected=$(dialog --erase-on-exit \
+    --title "Change Intel Performance and Energy Bias Hint from '$current_bias'" \
+    --radiolist "Available from performance (0) to power (15). Normal is 6" \
+    "$((bias_count + 10))" "$((COLUMNS / 2))" "$bias_count" \
+    "${list[@]}" \
+    3>&1 1>&2 2>&3 3>&-)
+
+if [[ -n "$selected" ]]; then
+    for cpu_path in "${cpu_paths[@]}"; do
+        [[ -f "$cpu_path/online" && "$(cat $cpu_path/online)" == "0" ]] && continue
+        bias_path="$cpu_path/power/energy_perf_bias"
+        echo "$selected" | sudo tee "$bias_path" || exit 1
+    done
+fi

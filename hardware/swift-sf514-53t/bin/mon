@@ -1,0 +1,159 @@
+#!/bin/bash
+
+function cpu_row() {
+	# quotes important
+	printf "%-5s %-10s %-20s %-2s %-8s %-17s %-5s %-6s %-5s %-5s\n" "$@"
+}
+
+function sensor_row() {
+	# quotes important
+	printf "%-9s %-9s %-9s %-9s %-9s %-9s\n" "$@"
+}
+
+function sensor() {
+	temp=$(echo "$1" | pcre2grep -M "$2.*\n(.+\n)*" | pcre2grep "$3:" | pcre2grep -o '\+?\d+.\d')
+	if [[ -n "$temp" ]]; then
+		echo "${temp}C"
+	else
+		echo 'N/A'
+	fi
+}
+
+function wait_focus() {
+	return 0
+}
+
+if [[ $(type i3-msg) ]]; then
+	workspace=$(i3-msg -t get_workspaces | jq --raw-output '.[] | select(.focused).num')
+	if [[ -n "$workspace" ]]; then
+		function wait_focus() {
+			while : ; do
+				visible=$(i3-msg -t get_workspaces | jq --raw-output '.[] | select(.num == '$workspace').visible')
+				if [[ "$visible" == 'true' ]]; then
+					break
+				fi
+				i3-msg -t subscribe '["workspace"]'
+			done
+		}
+	fi
+elif [[ $(type xdotool) ]]; then
+	window=$(xdotool getwindowfocus)
+	if [[ -n "$window" ]]; then
+		function wait_focus() {
+			focused_window=$(xdotool getwindowfocus 2>/dev/null)
+			if [[ "$window" != "$focused_window" ]]; then
+				xdotool behave "$window" focus getwindowfocus >/dev/null 2>&1
+			fi
+		}
+	fi
+fi
+
+base_path=/sys/devices/system/cpu
+
+cpus=($(ls "$base_path" | grep -P 'cpu\d+'))
+cpus_count=${#cpus[@]}
+
+declare -a mins=()
+declare -a bases=()
+declare -a maxes=()
+
+for ((i = 0; i < cpus_count; i++)); do
+	cpu=${cpus[$i]}
+	online_path=$base_path/$cpu/online
+    [[ -f "$online_path" && "$(cat $online_path)" == "0" ]] && continue
+	freq_path=$base_path/$cpu/cpufreq
+	mins[i]=$(($(cat "$freq_path/scaling_min_freq") / 1000))
+	bases[i]=$(($(cat "$freq_path/base_frequency") / 1000))
+	maxes[i]=$(($(cat "$freq_path/scaling_max_freq") / 1000))
+done
+
+: "${power_supply:=BAT0}"
+if [[ ! -d /sys/class/power_supply/$power_supply ]]; then
+    echo "No such power_supply: '$power_supply'"
+    echo "Use one from:"
+    ls /sys/class/power_supply
+    exit
+fi
+
+# cpus header + cpus + empty
+sensors_header_line=$((cpus_count + 2))
+sensors_line=$((sensors_header_line + 1))
+battery_header_line=$((sensors_line + 2))
+battery_line=$((battery_header_line + 1))
+bluetooth_line=$((battery_line + 1))
+
+clear
+cpu_row "CPU" "Gov" "Pref" "Bs" "Cur" "Min|Base|Max" "Usage" "Temp" "Thrtl" "Pckg"
+
+tput cup $sensors_header_line 0
+sensor_row "Wi-Fi" "PC Hub" "CPU" "Drive" "ACPI 1" "ACPI 2"
+
+tput cup $battery_header_line 0
+battery_name=""
+if [[ -f "/sys/class/power_supply/$power_supply/technology" ]]; then
+	battery_name="${battery_name}$(cat "/sys/class/power_supply/$power_supply/technology") "
+fi
+battery_name="${battery_name}$(cat "/sys/class/power_supply/$power_supply/type")"
+printf "%-20s %-12s" "$battery_name" "Brightness"
+
+while :; do
+	tput cup 1 0
+
+	wait_focus >/dev/null 2>&1
+
+	sensors_out=$(sensors -u 2>&1)
+
+	for ((i = 0; i < cpus_count; i++)); do
+		cpu=${cpus[$i]}
+	    online_path=$base_path/$cpu/online
+        [[ -f "$online_path" && "$(cat $online_path)" == "0" ]] && continue
+		freq_path="$base_path/$cpu/cpufreq"
+		cur_freq=$(($(cat "$freq_path/scaling_cur_freq") / 1000))
+		gov=$(cat "$freq_path/scaling_governor")
+		pref=$(cat "$freq_path/energy_performance_preference")
+		bias=$(cat "$base_path/$cpu/power/energy_perf_bias")
+		th_path="$base_path/$cpu/thermal_throttle"
+		core_th=$(cat "$th_path/core_throttle_count")
+		package_th=$(cat "$th_path/package_throttle_count")
+		min_freq="${mins[$i]}"
+		base_freq="${bases[$i]}"
+		max_freq="${maxes[$i]}"
+		percent=$(( 100 * (cur_freq - min_freq) / (base_freq - min_freq) ))
+		cpu_temp=$(sensor "$sensors_out" 'coretemp' "temp$(($i + 2))_input")
+
+		cpu_row "$cpu" "$gov" "$pref" "$bias" "${cur_freq}MHz" "${min_freq}|${base_freq}|${max_freq}MHz" "${percent}%" "${cpu_temp}" "${core_th}" "${package_th}"
+	done
+
+	tput cup $sensors_line 0
+	wifi_temp=$(sensor "$sensors_out" 'wifi' 'temp1_input')
+	hub_temp=$(sensor "$sensors_out" 'cannonlake' 'temp1_input')
+	cpu_temp=$(sensor "$sensors_out" 'coretemp' 'temp1_input')
+	drive_temp=$(sensor "$sensors_out" 'drive' 'temp1_input')
+	acpi1_temp=$(sensor "$sensors_out" 'acpi' 'temp1_input')
+	acpi2_temp=$(sensor "$sensors_out" 'acpi' 'temp2_input')
+	sensor_row "$wifi_temp" "$hub_temp" "$cpu_temp" "$drive_temp" "$acpi1_temp" "$acpi2_temp"
+
+	tput cup $battery_line 0
+	printf "%-7s %-13s %-12s\n" "$(battery)" "$(power_now)" "$(brightness)"
+
+	tput cup $bluetooth_line 0
+	tput el
+
+	if rc-service bluetooth status 1>/dev/null 2>&1; then
+		while read -r line
+		do
+			id=$(echo "$line" | cut -d ' ' -f2)
+			name=$(echo "$line" | cut -d ' ' --complement -f1,2)
+			device_battery=$(bluetoothctl info "$id" | grep 'Battery Percentage' | pcre2grep -o '(?<=\()\d+')
+			if [[ -n "$device_battery" ]]; then
+				printf "%-15s %-5s" "$name" "${device_battery}%"
+			fi
+		done < <(bluetoothctl devices)
+		tput cud1
+	fi
+
+	tput cud1
+	free -h
+
+	sleep 2
+done

@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# font='standard'
+# font='slant'
+# font='shadow'
+# font='small'
+# font='smslant'
+font='big'
+# font='digital'
+# font='bubble'
+# font='script'
+# font='lean'
+# font='block'
+# font='mini'
+# font='banner'
+# font='mnemonic'
+
+prev=""
+clear
+echo -e "\033[0;0H"
+
+while :; do
+    song=$(playerctl metadata --format '{{title}}'$'\n''{{artist}} '$'\n\n''{{album}}')
+
+    if [[ "$prev" != "$song" ]]; then
+        clear
+        echo -e "\033[0;0H"
+    fi
+
+    duration="$(playerctl metadata --format '   {{emoji(status)}} {{duration(position)}}/{{duration(mpris:length)}}')"
+    echo -ne "$duration"
+
+    if [[ "$prev" != "$song" ]]; then
+        echo -e "\033[3;0H"
+        figlet -Wc -w $COLUMNS -f "$font" "$song"
+        prev="$song"
+    fi
+
+    echo -e "\033[0;0H"
+    sleep 1
+done

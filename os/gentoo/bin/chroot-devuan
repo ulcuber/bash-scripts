@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# see /etc/fstab
+mountpoint -q /mnt/devuan || sudo mount /mnt/devuan
+
+mountpoint -q /mnt/devuan/dev || sudo mount --rbind /dev /mnt/devuan/dev
+sudo mount --make-rslave /mnt/devuan/dev
+mountpoint -q /mnt/devuan/proc || sudo mount -t proc /proc /mnt/devuan/proc
+mountpoint -q /mnt/devuan/sys || sudo mount --rbind /sys /mnt/devuan/sys
+sudo mount --make-rslave /mnt/devuan/sys
+
+# mountpoint -q /mnt/devuan/tmp || sudo mount --rbind /tmp /mnt/devuan/tmp
+# D-Bus conflict
+# mountpoint -q /mnt/devuan/run || sudo mount --bind /run /mnt/devuan/run
+
+sudo cp /etc/resolv.conf /mnt/devuan/etc/resolv.conf
+sudo cp /etc/hosts /mnt/devuan/etc/hosts
+
+if [[ -z "$1" ]]; then
+    sudo cp ~/yadisk/lang/bash/gentoo/chroot-devuan-profile /mnt/devuan/etc/
+    sudo chroot /mnt/devuan /bin/bash --init-file /etc/chroot-devuan-profile
+else
+    sudo cp ~/yadisk/lang/bash/gentoo/chroot-devuan-bashrc "/mnt/devuan/home/$1/.chroot-bashrc"
+    sudo cp ~/.bashrc "/mnt/devuan/home/$1/.host-bashrc"
+    case "$2" in
+    x11)
+        sudo xhost +local:
+        sudo cp ~/yadisk/lang/bash/gentoo/chroot-devuan-x11-bashrc "/mnt/devuan/home/$1/.chroot-x11-bashrc"
+        sudo chroot /mnt/devuan /usr/bin/sudo -H -i -u "$1" /bin/bash --init-file "/home/$1/.chroot-x11-bashrc"
+        ;;
+    *)
+        sudo chroot /mnt/devuan /usr/bin/sudo -H -i -u "$1" /bin/bash --init-file "/home/$1/.chroot-bashrc"
+        ;;
+    esac
+fi

@@ -1,0 +1,31 @@
+#!/bin/bash
+
+names=('KB' 'MB' 'GB' 'TB')
+
+function human() {
+    local i=0
+    local size=$1
+    while [ "$size" -gt 1024 ]; do
+        i=$((i + 1))
+        size=$((size / 1024))
+    done
+
+    local name="${names[$i]}"
+
+    echo "$size$name"
+}
+
+ps -Ao pid,pcpu,pmem,etime,cmd:40,uss,rss --sort=-pmem | head -n 15 | {
+    read -r header
+    echo "$header"
+
+    while IFS= read -r line; do
+        line_without_mem=$(echo "$line" | rev | cut -d' ' -f3- | rev)
+        uss=$(echo "$line" | awk '{print $(NF-1)}')
+        rss=$(echo "$line" | awk '{print $NF}')
+        uss_human=$(human "$uss")
+        rss_human=$(human "$rss")
+        echo -n "$line_without_mem "
+        printf "%6s %6s\n" "$uss_human" "$rss_human"
+    done
+}

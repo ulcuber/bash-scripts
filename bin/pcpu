@@ -1,0 +1,7 @@
+#!/bin/bash
+
+if [[ -z "$@" ]]; then
+    ps -Ao pid,nice,pcpu,pmem,etime,command --sort=-pcpu | head -n 15
+else
+    ps "$@" -Ao pid,nice,pcpu,pmem,etime,command --sort=-pcpu | less
+fi

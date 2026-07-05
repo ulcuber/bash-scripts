@@ -1,0 +1,3 @@
+#!/bin/bash
+
+Xephyr -screen 1920x1080 -dpi 96 -host-cursor +extension RANDR :1

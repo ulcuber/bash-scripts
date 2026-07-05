@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# compress
+ouch c "$1" "$1.tar.gz"
