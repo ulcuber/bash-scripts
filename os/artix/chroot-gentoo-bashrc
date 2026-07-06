@@ -1,0 +1,23 @@
+mountpoint -q /boot/efi || sudo mount /boot/efi
+
+mountpoint -q ~/depot || sudo mount ~/depot
+mountpoint -q ~/storage || sudo mount ~/storage
+
+sudo /etc/init.d/sysklogd start
+
+if ! shopt -oq posix; then
+  if [ -f /usr/share/bash-completion/bash_completion ]; then
+    . /usr/share/bash-completion/bash_completion
+  elif [ -f /etc/bash_completion ]; then
+    . /etc/bash_completion
+  fi
+fi
+
+export debian_chroot="chroot"
+
+# it has its own
+# . ~/.host-bashrc
+
+. ~/.bashrc
+
+# vim: set ft=bash :

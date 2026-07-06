@@ -1,0 +1,40 @@
+#!/bin/bash
+
+cd "$( dirname "${BASH_SOURCE[0]}" )"
+
+# see /etc/fstab
+mountpoint -q /mnt/gentoo || sudo mount /mnt/gentoo
+
+mountpoint -q /mnt/gentoo/dev || sudo mount --rbind /dev /mnt/gentoo/dev
+sudo mount --make-rslave /mnt/gentoo/dev
+mountpoint -q /mnt/gentoo/proc || sudo mount -t proc /proc /mnt/gentoo/proc
+mountpoint -q /mnt/gentoo/sys || sudo mount --rbind /sys /mnt/gentoo/sys
+sudo mount --make-rslave /mnt/gentoo/sys
+
+# better to have own to prevent collisions
+# mountpoint -q /mnt/gentoo/tmp || sudo mount --rbind /tmp /mnt/gentoo/tmp
+# D-Bus conflict
+# mountpoint -q /mnt/gentoo/run || sudo mount --bind /run /mnt/gentoo/run
+
+sudo cp /etc/resolv.conf /mnt/gentoo/etc/resolv.conf
+sudo cp /etc/hosts /mnt/gentoo/etc/hosts
+
+if [[ -z "$1" ]]; then
+    sudo cp ../chroot-gentoo-profile /mnt/gentoo/etc/
+    sudo chroot /mnt/gentoo /bin/bash --init-file /etc/chroot-gentoo-profile
+else
+    sudo cp ../chroot-gentoo-bashrc "/mnt/gentoo/home/$1/.chroot-bashrc"
+    # only if it hasn't own
+    # sudo cp ~/.bashrc "/mnt/gentoo/home/$1/.host-bashrc"
+
+    case "$2" in
+    x11)
+        sudo xhost +local:
+        sudo cp ../chroot-gentoo-x11-bashrc "/mnt/gentoo/home/$1/.chroot-x11-bashrc"
+        sudo chroot /mnt/gentoo /usr/bin/sudo -H -i -u "$1" /bin/bash --init-file "/home/$1/.chroot-x11-bashrc"
+        ;;
+    *)
+        sudo chroot /mnt/gentoo /usr/bin/sudo -H -i -u "$1" /bin/bash --init-file "/home/$1/.chroot-bashrc"
+        ;;
+    esac
+fi

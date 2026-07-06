@@ -12,8 +12,20 @@ export CPU_FLAGS_X86="aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sse
 
 make modules_prepare
 make menuconfig
-make -j4 \
-	&& make -j4 modules_install \
-	&& make install \
-	&& genkernel --install --kerneldir=${KERNEL_PATH} --kernel-config=${KERNEL_PATH}/.config --makeopts="-j4" initramfs
-emerge --ask --quiet @module-rebuild
+
+make -j4 || exit
+emerge --quiet --verbose @module-rebuild || exit
+
+# Having built both the kernel and the modules, both should be installed
+make modules_install || exit
+make install || exit
+
+# deprecated way to make initramfs:
+# genkernel --install --kerneldir=${KERNEL_PATH} --kernel-config=${KERNEL_PATH}/.config --makeopts="-j4" initramfs
+
+# new way to generate initramfs
+# needs package.use: `sys-kernel/installkernel dracut`
+# check `equery uses sys-kernel/installkernel` if you upgrading from dist-bin
+# NOTE: remember to change CONFIG_LOCALVERSION="-gentoo-dist-bin" from `modprobed-db`
+# CONFIG_LOCALVERSION="-gentoo" should match /usr/src naming
+# should run automatically after `make install`

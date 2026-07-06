@@ -1,0 +1,11 @@
+#!/bin/bash
+
+. ~/.chroot-bashrc
+
+sudo /etc/init.d/dbus start
+
+export DISPLAY=:1
+
+sleep 15 && xrandr --output default --mode=1920x1080 &
+
+startx

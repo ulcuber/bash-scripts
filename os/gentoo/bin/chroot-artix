@@ -1,0 +1,41 @@
+#!/bin/bash
+
+cd "$( dirname "${BASH_SOURCE[0]}" )"
+
+# see /etc/fstab
+mountpoint -q /mnt/artix || sudo mount /mnt/artix
+
+mountpoint -q /mnt/artix/dev || sudo mount --rbind /dev /mnt/artix/dev
+sudo mount --make-rslave /mnt/artix/dev
+mountpoint -q /mnt/artix/proc || sudo mount -t proc /proc /mnt/artix/proc
+mountpoint -q /mnt/artix/sys || sudo mount --rbind /sys /mnt/artix/sys
+sudo mount --make-rslave /mnt/artix/sys
+
+# better to have own to prevent collisions
+# mountpoint -q /mnt/artix/tmp || sudo mount --rbind /tmp /mnt/artix/tmp
+# D-Bus conflict
+# mountpoint -q /mnt/artix/run || sudo mount --bind /run /mnt/artix/run
+
+sudo cp /etc/resolv.conf /mnt/artix/etc/resolv.conf
+sudo cp /etc/hosts /mnt/artix/etc/hosts
+
+if [[ -z "$1" ]]; then
+    sudo cp ../chroot-artix-profile /mnt/artix/etc/
+    sudo chroot /mnt/artix /bin/bash --init-file /etc/chroot-artix-profile
+else
+    sudo cp ../chroot-artix-bashrc "/mnt/artix/home/$1/.chroot-bashrc"
+    # only if it hasn't own
+    # sudo cp ~/.bashrc "/mnt/artix/home/$1/.host-bashrc"
+
+    case "$2" in
+    x11)
+        # has no own X11
+        # sudo xhost +local:
+        sudo cp ../chroot-artix-x11-bashrc "/mnt/artix/home/$1/.chroot-x11-bashrc"
+        sudo chroot /mnt/artix /usr/bin/sudo -H -i -u "$1" /bin/bash --init-file "/home/$1/.chroot-x11-bashrc"
+        ;;
+    *)
+        sudo chroot /mnt/artix /usr/bin/sudo -H -i -u "$1" /bin/bash --init-file "/home/$1/.chroot-bashrc"
+        ;;
+    esac
+fi
