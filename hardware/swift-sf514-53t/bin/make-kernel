@@ -1,0 +1,19 @@
+#!/bin/bash
+
+KERNEL_PATH=/usr/src/linux
+
+cd ${KERNEL_PATH}
+
+COMMON_FLAGS="-O2 -pipe -march=native"
+export CFLAGS="${COMMON_FLAGS}"
+export CXXFLAGS="${COMMON_FLAGS}"
+export RUSTFLAGS="${RUSTFLAGS} -C target-cpu=native"
+export CPU_FLAGS_X86="aes avx avx2 f16c fma3 mmx mmxext pclmul popcnt rdrand sse sse2 sse3 sse4_1 sse4_2 ssse3 bmi1 bmi2"
+
+make modules_prepare
+make menuconfig
+make -j4 \
+	&& make -j4 modules_install \
+	&& make install \
+	&& genkernel --install --kerneldir=${KERNEL_PATH} --kernel-config=${KERNEL_PATH}/.config --makeopts="-j4" initramfs
+emerge --ask --quiet @module-rebuild

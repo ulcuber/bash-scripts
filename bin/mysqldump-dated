@@ -1,0 +1,16 @@
+#!/bin/bash
+
+date=$(date +%F -u)
+database=${1}
+
+if [[ -z $database ]]; then
+        echo 'Missing args'
+        echo 'dump <database>'
+        exit 1
+fi
+
+charset=$(mysql -e "SELECT @@character_set_database;" "$database" | tail -n1 | cut -d ':' -f2)
+
+echo "Using charset: $charset"
+
+mysqldump --default-character-set="$charset" --result-file="$database-dump-$date.sql" "$database"
