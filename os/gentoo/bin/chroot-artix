@@ -2,36 +2,46 @@
 
 cd "$( dirname "${BASH_SOURCE[0]}" )"
 
+# --rbind is recursive
+#
 # see /etc/fstab
 mountpoint -q /mnt/artix || sudo mount /mnt/artix
 
-mountpoint -q /mnt/artix/dev || sudo mount --rbind /dev /mnt/artix/dev
-sudo mount --make-rslave /mnt/artix/dev
-mountpoint -q /mnt/artix/proc || sudo mount -t proc /proc /mnt/artix/proc
+mountpoint -q /mnt/artix/proc || sudo mount --types proc /proc /mnt/artix/proc
 mountpoint -q /mnt/artix/sys || sudo mount --rbind /sys /mnt/artix/sys
 sudo mount --make-rslave /mnt/artix/sys
+mountpoint -q /mnt/artix/dev || sudo mount --rbind /dev /mnt/artix/dev
+sudo mount --make-rslave /mnt/artix/dev
 
 # better to have own to prevent collisions
 # mountpoint -q /mnt/artix/tmp || sudo mount --rbind /tmp /mnt/artix/tmp
 # D-Bus conflict
 # mountpoint -q /mnt/artix/run || sudo mount --bind /run /mnt/artix/run
-
-sudo cp /etc/resolv.conf /mnt/artix/etc/resolv.conf
-sudo cp /etc/hosts /mnt/artix/etc/hosts
+# sudo mount --make-slave /mnt/artix/run
 
 if [[ -z "$1" ]]; then
     sudo cp ../chroot-artix-profile /mnt/artix/etc/
     sudo chroot /mnt/artix /bin/bash --init-file /etc/chroot-artix-profile
 else
-    sudo cp ../chroot-artix-bashrc "/mnt/artix/home/$1/.chroot-bashrc"
+    echo "export COLOR_SCHEME='$(~/.config/xsettingsd/get-color-scheme)'" | sudo tee "/mnt/artix/home/$1/.chroot-bashrc" > /dev/null
+    cat ../chroot-artix-bashrc | sudo tee -a  "/mnt/artix/home/$1/.chroot-bashrc" > /dev/null
     # only if it hasn't own
     # sudo cp ~/.bashrc "/mnt/artix/home/$1/.host-bashrc"
 
     case "$2" in
     x11)
         # has no own X11
+        # needed only for reusing X-Server. Better for guest to have its own X-Server connected to host's Xephyr
         # sudo xhost +local:
         sudo cp ../chroot-artix-x11-bashrc "/mnt/artix/home/$1/.chroot-x11-bashrc"
+
+        if [[ ! -f /mnt/artix/etc/X11/Xwrapper.config ]]; then
+            # allow since chroot uses /dev/pts/N (not /dev/tty)
+            echo "allowed_users=anybody" | sudo tee "/mnt/artix/etc/X11/Xwrapper.config" > /dev/null
+            # it can't tell if needs root within chrootted env
+            echo "needs_root_rights=yes" | sudo tee -a "/mnt/artix/etc/X11/Xwrapper.config" > /dev/null
+        fi
+
         sudo chroot /mnt/artix /usr/bin/sudo -H -i -u "$1" /bin/bash --init-file "/home/$1/.chroot-x11-bashrc"
         ;;
     *)
