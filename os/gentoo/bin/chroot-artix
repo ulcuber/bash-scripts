@@ -19,11 +19,16 @@ sudo mount --make-rslave /mnt/artix/dev
 # mountpoint -q /mnt/artix/run || sudo mount --bind /run /mnt/artix/run
 # sudo mount --make-slave /mnt/artix/run
 
+# should preverse guest files
+mountpoint -q /mnt/artix/etc/resolv.conf || sudo mount --rbind /etc/resolv.conf /mnt/artix/etc/resolv.conf
+mountpoint -q /mnt/artix/etc/hosts || sudo mount --rbind /etc/hosts /mnt/artix/etc/hosts
+
 if [[ -z "$1" ]]; then
     sudo cp ../chroot-artix-profile /mnt/artix/etc/
     sudo chroot /mnt/artix /bin/bash --init-file /etc/chroot-artix-profile
 else
     echo "export COLOR_SCHEME='$(~/.config/xsettingsd/get-color-scheme)'" | sudo tee "/mnt/artix/home/$1/.chroot-bashrc" > /dev/null
+    echo "export debian_chroot='chroot gentoo'" | sudo tee -a "/mnt/artix/home/$1/.chroot-bashrc" > /dev/null
     cat ../chroot-artix-bashrc | sudo tee -a  "/mnt/artix/home/$1/.chroot-bashrc" > /dev/null
     # only if it hasn't own
     # sudo cp ~/.bashrc "/mnt/artix/home/$1/.host-bashrc"
@@ -31,7 +36,6 @@ else
     case "$2" in
     x11)
         # has no own X11
-        # needed only for reusing X-Server. Better for guest to have its own X-Server connected to host's Xephyr
         # sudo xhost +local:
         sudo cp ../chroot-artix-x11-bashrc "/mnt/artix/home/$1/.chroot-x11-bashrc"
 

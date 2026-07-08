@@ -16,20 +16,24 @@ sudo mount --make-rslave /mnt/gentoo/sys
 # D-Bus conflict
 # mountpoint -q /mnt/gentoo/run || sudo mount --bind /run /mnt/gentoo/run
 
-sudo cp /etc/resolv.conf /mnt/gentoo/etc/resolv.conf
-sudo cp /etc/hosts /mnt/gentoo/etc/hosts
+# should preverse guest files
+mountpoint -q /mnt/gentoo/etc/resolv.conf || sudo mount --rbind /etc/resolv.conf /mnt/gentoo/etc/resolv.conf
+mountpoint -q /mnt/gentoo/etc/hosts || sudo mount --rbind /etc/hosts /mnt/gentoo/etc/hosts
 
 if [[ -z "$1" ]]; then
     sudo cp ../chroot-gentoo-profile /mnt/gentoo/etc/
     sudo chroot /mnt/gentoo /bin/bash --init-file /etc/chroot-gentoo-profile
 else
-    sudo cp ../chroot-gentoo-bashrc "/mnt/gentoo/home/$1/.chroot-bashrc"
+    echo "export COLOR_SCHEME='$(~/.config/xsettingsd/get-color-scheme)'" | sudo tee "/mnt/gentoo/home/$1/.chroot-bashrc" > /dev/null
+    echo "export debian_chroot='chroot artix'" | sudo tee -a "/mnt/gentoo/home/$1/.chroot-bashrc" > /dev/null
+    cat ../chroot-gentoo-bashrc | sudo tee -a  "/mnt/gentoo/home/$1/.chroot-bashrc" > /dev/null
+
     # only if it hasn't own
     # sudo cp ~/.bashrc "/mnt/gentoo/home/$1/.host-bashrc"
 
     case "$2" in
     x11)
-        sudo xhost +local:
+        # sudo xhost +local:
         sudo cp ../chroot-gentoo-x11-bashrc "/mnt/gentoo/home/$1/.chroot-x11-bashrc"
         sudo chroot /mnt/gentoo /usr/bin/sudo -H -i -u "$1" /bin/bash --init-file "/home/$1/.chroot-x11-bashrc"
         ;;

@@ -10,8 +10,6 @@ mountpoint -q ~/storage || sudo mount ~/storage
 # sudo touch /run/openrc/softlevel
 # sudo /etc/init.d/name start
 
-export debian_chroot="chroot"
-
 . ~/.bashrc
 
 if [[ -x "$HOME/.config/xsettingsd/set-color-scheme" ]]; then
