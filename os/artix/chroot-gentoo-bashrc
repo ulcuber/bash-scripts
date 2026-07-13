@@ -1,0 +1,15 @@
+# vim: set ft=sh
+
+mountpoint -q /boot/efi || sudo mount /boot/efi
+
+mountpoint -q ~/depot || sudo mount ~/depot
+mountpoint -q ~/storage || sudo mount ~/storage
+
+# can trigger dependencies
+# sudo /etc/init.d/name start
+
+. ~/.bashrc
+
+if [[ -x "$HOME/.config/xsettingsd/set-color-scheme" ]]; then
+    "$HOME/.config/xsettingsd/set-color-scheme" "$COLOR_SCHEME"
+fi

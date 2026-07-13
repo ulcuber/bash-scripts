@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# part of app-portage/gentoolkit
 # clean outdated binary packages from PKGDIR
 sudo eclean distfiles
 # why kept? to downgrade without re-downloading
@@ -19,6 +20,7 @@ sudo perl-cleaner --all
 
 echo
 
+# app-admin/eclean-kernel
 eclean-kernel --pretend --all
 # Remove old kernel versions
 sudo eclean-kernel --ask --all

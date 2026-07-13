@@ -1,0 +1,12 @@
+#!/bin/bash
+
+. ~/.chroot-bashrc
+
+# will trigger too much dependencies
+# sudo /etc/init.d/dbus start
+
+# has no own X11 to start Xephyr
+# export DISPLAY=:1
+# sleep 15 && xrandr --output default --mode=1920x1080 &
+
+startx -- :0
