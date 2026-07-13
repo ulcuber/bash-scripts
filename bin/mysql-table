@@ -24,4 +24,9 @@ else
     TABLE=$1
 fi
 
+if [[ ! $(command -v grcat) ]]; then
+    function grcat() {
+        cat
+    }
+fi
 mysql -e "show create table \`$TABLE\` \\G" "$DB_DATABASE" | tail -n+3 | cut -d ':' -f2 | cut -d ' ' -f1 --complement | grcat ~/.config/grcat/mysql
